@@ -5,40 +5,47 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 
+	"github.com/caarlos0/env/v9"
 	"github.com/joshdk/go-junit"
 	log "github.com/sirupsen/logrus"
 )
 
-/**
-TODOs
-- Read Metadata from environment variables
-- Populate the DTO with the metadata
-- Dockerize the application
-- Make the endpoint configurable
-- Make the test results directory configurable
-*/
+// App config populated from environment variables
+type Config struct {
+	APIendpoint string `env:"API_ENDPOINT"`
+	APIToken    string `env:"API_TOKEN"`
+	IngestDir   string `env:"INGEST_DIR"`
+}
 
+// ResultMetadata populated from environment variables
 type ResultMetadata struct {
-	AssignmentRepoBranchName string `json:"assignmentRepoBranchName"`
-	AssignmentRepoCommitHash string `json:"assignmentRepoCommitHash"`
-	TestsRepoCommitHash      string `json:"testsRepoCommitHash"`
-	IsBuildSuccessful        bool   `json:"isBuildSuccessful"`
-	BuildRunDate             string `json:"buildRunDate"`
+	JobName                  string `json:"job_name" env:"JOB_NAME"`
+	AssignmentRepoBranchName string `json:"assignmentRepoBranchName" env:"ASSIGNMENT_REPO_BRANCH_NAME" envDefault:"main"`
+	//AssignmentRepoCommitHash string `json:"assignmentRepoCommitHash" env:"ASSIGNMENT_REPO_COMMIT_HASH"`
+	//TestsRepoCommitHash      string `json:"testsRepoCommitHash" env:"TESTS_REPO_COMMIT_HASH"`
+	//IsBuildSuccessful        bool   `json:"isBuildSuccessful" env:"IS_BUILD_SUCCESSFUL"`
+	//BuildRunDate             string `json:"buildRunDate" env:"BUILD_RUN_DATE"`
 }
 type ResultDTO struct {
 	ResultMetadata
 	BuildJobs []junit.Suite `json:"buildJobs"`
 }
 
-const (
-	APIendpoint = "http://localhost:3001/result"
-)
+var config Config
+var metadata ResultDTO
 
 func main() {
 	log.Info("Starting the application...")
+	if is_debug := os.Getenv("DEBUG"); is_debug == "true" {
+		log.SetLevel(log.DebugLevel)
+		log.Warn("DEBUG MODE ENABLED")
+	}
+	loadEnv()
 
-	suites, err := junit.IngestDir("test-data/build/test-results/test")
+	suites, err := junit.IngestDir(config.IngestDir)
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,26 +53,38 @@ func main() {
 	reportResult(suites)
 }
 
-func reportResult(suites []junit.Suite) {
-	var resultDTO ResultDTO
-	for _, suite := range suites {
-		resultDTO.BuildJobs = append(resultDTO.BuildJobs, suite)
+func loadEnv() {
+	// Load the environment variables
+	if err := env.Parse(&config); err != nil {
+		log.Fatal(err)
 	}
+	log.Debugf("App Config: %+v", config)
+
+	if err := env.Parse(&metadata); err != nil {
+		log.Fatal(err)
+	}
+	log.Debugf("Metadata Config: %+v", metadata)
+}
+
+func reportResult(suites []junit.Suite) {
+	metadata.BuildJobs = append(metadata.BuildJobs, suites...)
 
 	// Convert the DTO to JSON
-	jsonData, err := json.Marshal(resultDTO)
+	jsonData, err := json.Marshal(metadata)
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Debug("JSON Data: ", string(jsonData))
 
 	// Create a new request using http
-	req, err := http.NewRequest("POST", APIendpoint, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", config.APIendpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	// Set headers
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", config.APIToken)
 
 	// Create a Client
 	client := &http.Client{}
@@ -75,6 +94,8 @@ func reportResult(suites []junit.Suite) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	log.Info("Response Status: ", resp.Status)
 
 	// Close response body
 	defer resp.Body.Close()

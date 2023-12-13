@@ -1,0 +1,18 @@
+# Docker compose file for running the application
+
+version: '3.7'
+services:
+  result: 
+    image: ghcr.io/mtze/hades/hades-repo-container:latest
+    build: .
+    volumes:
+      - type: bind
+        source: ./test-data
+        target: /test-data
+    environment:
+      - DEBUG=true # Not implemented yet
+      - API_ENDPOINT=http://host.docker.internal:8080/api/public/programming-exercises/new-result
+      - INGEST_DIR=/test-data/build/test-results/test
+      - API_TOKEN=<token>
+      # Job Metadata
+      - JOB_NAME=TESTTES3-SOLUTION

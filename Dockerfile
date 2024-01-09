@@ -15,10 +15,10 @@ RUN apk update && apk add --no-cache ca-certificates libc6-compat
 # Set the working directory inside the minimal runtime container
 
 # Copy the built binary from the builder container into the minimal runtime container
-COPY --from=builder /app/result-builder . 
+COPY --from=builder /app/result-builder /
 
 # Ensure the binary is executable
-RUN chmod +x ./result-builder
+RUN chmod +x /result-builder
 
 # Run your Go application
-CMD ["./result-builder"]
+CMD ["/result-builder"]

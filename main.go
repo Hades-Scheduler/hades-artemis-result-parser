@@ -7,15 +7,18 @@ import (
 	"os"
 
 	"github.com/caarlos0/env/v9"
+	git "github.com/go-git/go-git/v5"
 	"github.com/joshdk/go-junit"
 	log "github.com/sirupsen/logrus"
 )
 
 // App config populated from environment variables
 type Config struct {
-	APIendpoint string `env:"API_ENDPOINT"`
-	APIToken    string `env:"API_TOKEN"`
-	IngestDir   string `env:"INGEST_DIR"`
+	APIendpoint        string `env:"API_ENDPOINT"`
+	APIToken           string `env:"API_TOKEN"`
+	IngestDir          string `env:"INGEST_DIR"`
+	TestRepoPath       string `env:"HADES_TEST_PATH"`
+	AssignmentRepoPath string `env:"HADES_ASSIGNMENT_PATH"`
 }
 
 // ResultMetadata populated from environment variables
@@ -23,9 +26,9 @@ type ResultMetadata struct {
 	JobName                  string `json:"jobName" env:"JOB_NAME"`
 	AssignmentRepoBranchName string `json:"assignmentRepoBranchName" env:"ASSIGNMENT_REPO_BRANCH_NAME" envDefault:"main"`
 	IsBuildSuccessful        bool   `json:"isBuildSuccessful" env:"IS_BUILD_SUCCESSFUL"`
-	//AssignmentRepoCommitHash string `json:"assignmentRepoCommitHash" env:"ASSIGNMENT_REPO_COMMIT_HASH"`
-	//TestsRepoCommitHash      string `json:"testsRepoCommitHash" env:"TESTS_REPO_COMMIT_HASH"`
-	//BuildRunDate             string `json:"buildRunDate" env:"BUILD_RUN_DATE"`
+	AssignmentRepoCommitHash string `json:"assignmentRepoCommitHash" env:"ASSIGNMENT_REPO_COMMIT_HASH"`
+	TestsRepoCommitHash      string `json:"testsRepoCommitHash" env:"TESTS_REPO_COMMIT_HASH"`
+	// BuildRunDate             string `json:"buildRunDate" env:"BUILD_RUN_DATE"`
 }
 type ResultDTO struct {
 	ResultMetadata
@@ -42,6 +45,7 @@ func main() {
 		log.Warn("DEBUG MODE ENABLED")
 	}
 	loadEnv()
+
 	log.Info("Parse JUnit results to DTOs...")
 	suites, err := junit.IngestDir(config.IngestDir)
 	if err != nil {
@@ -52,6 +56,9 @@ func main() {
 		markBuildAsSuccessful()
 		log.Info("Successfully parsed the JUnit results")
 	}
+
+	metadata.AssignmentRepoCommitHash = getCommitHash(config.AssignmentRepoPath)
+	metadata.TestsRepoCommitHash = getCommitHash(config.TestRepoPath)
 
 	jsonbody := parseResults(suites)
 	sendResponse(jsonbody)
@@ -84,6 +91,22 @@ func parseResults(suites []junit.Suite) []byte {
 	}
 	log.Debug("JSON Data: ", string(jsonData))
 	return jsonData
+}
+func getCommitHash(repoPath string) string {
+	// Open the repository
+	r, err := git.PlainOpen(repoPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Get the HEAD reference
+	ref, err := r.Head()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Infof("Commit Hash for path %s is: %s ", repoPath, ref.Hash().String())
+	// Return the commit hash
+	return ref.Hash().String()
 }
 
 func markBuildAsFailed() {

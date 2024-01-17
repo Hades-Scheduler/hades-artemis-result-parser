@@ -111,11 +111,13 @@ func getCommitHash(repoPath string) string {
 
 func markBuildAsFailed() {
 	metadata.IsBuildSuccessful = false
+	log.Info("Build failed")
 	// TODO: Add more details to the response
 }
 
 func markBuildAsSuccessful() {
 	metadata.IsBuildSuccessful = true
+	log.Info("Build successful")
 	// TODO: Add more details to the response
 }
 

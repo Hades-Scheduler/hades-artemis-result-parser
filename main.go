@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 
@@ -23,9 +22,9 @@ type Config struct {
 type ResultMetadata struct {
 	JobName                  string `json:"jobName" env:"JOB_NAME"`
 	AssignmentRepoBranchName string `json:"assignmentRepoBranchName" env:"ASSIGNMENT_REPO_BRANCH_NAME" envDefault:"main"`
+	IsBuildSuccessful        bool   `json:"isBuildSuccessful" env:"IS_BUILD_SUCCESSFUL"`
 	//AssignmentRepoCommitHash string `json:"assignmentRepoCommitHash" env:"ASSIGNMENT_REPO_COMMIT_HASH"`
 	//TestsRepoCommitHash      string `json:"testsRepoCommitHash" env:"TESTS_REPO_COMMIT_HASH"`
-	//IsBuildSuccessful        bool   `json:"isBuildSuccessful" env:"IS_BUILD_SUCCESSFUL"`
 	//BuildRunDate             string `json:"buildRunDate" env:"BUILD_RUN_DATE"`
 }
 type ResultDTO struct {
@@ -43,17 +42,23 @@ func main() {
 		log.Warn("DEBUG MODE ENABLED")
 	}
 	loadEnv()
-
+	log.Info("Parse JUnit results to DTOs...")
 	suites, err := junit.IngestDir(config.IngestDir)
-
 	if err != nil {
-		log.Fatal(err)
+		//TODO: Create response with error message
+		markBuildAsFailed()
+		log.Errorf("Could not Parse JUnit XML files - %v ", err)
+	} else {
+		markBuildAsSuccessful()
+		log.Info("Successfully parsed the JUnit results")
 	}
 
-	reportResult(suites)
+	jsonbody := parseResults(suites)
+	sendResponse(jsonbody)
 }
 
 func loadEnv() {
+	log.Info("Loading Environment variables...")
 	// Load the environment variables
 	if err := env.Parse(&config); err != nil {
 		log.Fatal(err)
@@ -64,21 +69,39 @@ func loadEnv() {
 		log.Fatal(err)
 	}
 	log.Debugf("Metadata Config: %+v", metadata)
+	log.Info("Environment variables loaded successfully")
 }
 
-func reportResult(suites []junit.Suite) {
+// Parses the JUnit results and creates a JSON representation
+func parseResults(suites []junit.Suite) []byte {
+	log.Info("Parsing the JUnit results to JSON...")
 	metadata.BuildJobs = append(metadata.BuildJobs, suites...)
 
 	// Convert the DTO to JSON
 	jsonData, err := json.Marshal(metadata)
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("Error parsing JUnit results to JSON %v", err)
 	}
 	log.Debug("JSON Data: ", string(jsonData))
+	return jsonData
+}
 
+func markBuildAsFailed() {
+	metadata.IsBuildSuccessful = false
+	// TODO: Add more details to the response
+}
+
+func markBuildAsSuccessful() {
+	metadata.IsBuildSuccessful = true
+	// TODO: Add more details to the response
+}
+
+func sendResponse(json []byte) {
 	// Create a new request using http
-	req, err := http.NewRequest("POST", config.APIendpoint, bytes.NewBuffer(jsonData))
+	log.Info("Sending the response to the API...")
+	req, err := http.NewRequest("POST", config.APIendpoint, bytes.NewBuffer(json))
 	if err != nil {
+		log.Debug("Error creating the request")
 		log.Fatal(err)
 	}
 
@@ -92,6 +115,7 @@ func reportResult(suites []junit.Suite) {
 	// Send the request via a client
 	resp, err := client.Do(req)
 	if err != nil {
+		log.Debug("Error sending the request")
 		log.Fatal(err)
 	}
 
@@ -99,31 +123,4 @@ func reportResult(suites []junit.Suite) {
 
 	// Close response body
 	defer resp.Body.Close()
-}
-
-func toJSON(suites []junit.Suite) {
-	j, err := json.Marshal(suites)
-	if err != nil {
-		log.Fatal(err)
-	}
-	var out bytes.Buffer
-	json.Indent(&out, j, "", "  ")
-	fmt.Print(out.String())
-
-}
-
-func printOutput(suites []junit.Suite) {
-
-	for _, suite := range suites {
-		fmt.Println(suite.Name)
-		for _, test := range suite.Tests {
-			fmt.Printf("  %s\n", test.Name)
-			if test.Error != nil {
-				fmt.Printf("    %s: %v\n", test.Status, test.Error)
-			} else {
-				fmt.Printf("    %s\n", test.Status)
-			}
-		}
-	}
-
 }

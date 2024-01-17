@@ -16,3 +16,4 @@ services:
       - API_TOKEN=<token>
       # Job Metadata
       - JOB_NAME=TESTTES3-SOLUTION
+      - IS_BUILD_SUCCESSFUL=true

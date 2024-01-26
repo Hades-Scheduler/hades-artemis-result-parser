@@ -1,0 +1,7 @@
+# Docker compose file for running the application
+
+version: '3.7'
+services:
+  result: 
+    environment:
+      - API_ENDPOINT=http://host.docker.internal:3002/api/public/programming-exercises/new-result

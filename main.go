@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/caarlos0/env/v9"
 	git "github.com/go-git/go-git/v5"
@@ -28,7 +29,7 @@ type ResultMetadata struct {
 	IsBuildSuccessful        bool   `json:"isBuildSuccessful" env:"IS_BUILD_SUCCESSFUL"`
 	AssignmentRepoCommitHash string `json:"assignmentRepoCommitHash" env:"ASSIGNMENT_REPO_COMMIT_HASH"`
 	TestsRepoCommitHash      string `json:"testsRepoCommitHash" env:"TESTS_REPO_COMMIT_HASH"`
-	// BuildRunDate             string `json:"buildRunDate" env:"BUILD_RUN_DATE"`
+	BuildCompletionTime      string `json:"buildCompletionTime" env:"BUILD_COMPLETION_TIME"`
 }
 type ResultDTO struct {
 	ResultMetadata
@@ -59,6 +60,7 @@ func main() {
 
 	metadata.AssignmentRepoCommitHash = getCommitHash(config.AssignmentRepoPath)
 	metadata.TestsRepoCommitHash = getCommitHash(config.TestRepoPath)
+	metadata.BuildCompletionTime = time.Now().Format(time.RFC3339)
 
 	jsonbody := parseResults(suites)
 	sendResponse(jsonbody)
@@ -93,16 +95,19 @@ func parseResults(suites []junit.Suite) []byte {
 	return jsonData
 }
 func getCommitHash(repoPath string) string {
+	log.Debug("Getting the commit hash for path: ", repoPath)
 	// Open the repository
 	r, err := git.PlainOpen(repoPath)
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Warn("Could not open the repository")
+		return ""
 	}
+	log.Debug("Successfully opened the repository")
 
 	// Get the HEAD reference
 	ref, err := r.Head()
 	if err != nil {
-		log.Fatal(err)
+		log.Warn("Commit hash not fount - ", err)
 	}
 	log.Infof("Commit Hash for path %s is: %s ", repoPath, ref.Hash().String())
 	// Return the commit hash

@@ -25,6 +25,7 @@ type Config struct {
 // ResultMetadata populated from environment variables
 type ResultMetadata struct {
 	JobName                  string `json:"jobName" env:"JOB_NAME"`
+	UUID                     string `json:"uuid" env:"UUID"`
 	AssignmentRepoBranchName string `json:"assignmentRepoBranchName" env:"ASSIGNMENT_REPO_BRANCH_NAME" envDefault:"main"`
 	IsBuildSuccessful        bool   `json:"isBuildSuccessful" env:"IS_BUILD_SUCCESSFUL"`
 	AssignmentRepoCommitHash string `json:"assignmentRepoCommitHash" env:"ASSIGNMENT_REPO_COMMIT_HASH"`

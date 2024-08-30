@@ -5,3 +5,4 @@ services:
   result: 
     environment:
       - API_ENDPOINT=http://host.docker.internal:3002/api/public/programming-exercises/new-result
+      - UUID=1234

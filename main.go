@@ -10,6 +10,7 @@ import (
 	"github.com/caarlos0/env/v9"
 	git "github.com/go-git/go-git/v5"
 	"github.com/joshdk/go-junit"
+	"github.com/ls1intum/hades/shared/buildlogs"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -35,6 +36,7 @@ type ResultMetadata struct {
 type ResultDTO struct {
 	ResultMetadata
 	BuildJobs []junit.Suite `json:"buildJobs"`
+	BuildLogs buildlogs.Log `json:"buildLogs"`
 }
 
 var config Config

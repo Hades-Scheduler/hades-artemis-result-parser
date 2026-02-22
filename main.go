@@ -32,11 +32,38 @@ type ResultMetadata struct {
 	AssignmentRepoCommitHash string `json:"assignmentRepoCommitHash" env:"ASSIGNMENT_REPO_COMMIT_HASH"`
 	TestsRepoCommitHash      string `json:"testsRepoCommitHash" env:"TESTS_REPO_COMMIT_HASH"`
 	BuildCompletionTime      string `json:"buildCompletionTime" env:"BUILD_COMPLETION_TIME"`
+	Passed                   int    `json:"passed" env:"PASSED"`
 }
+
+type TestSuiteDTO struct {
+	Name      string        `json:"name"`
+	Time      float64       `json:"time"`
+	Errors    int           `json:"errors"`
+	Skipped   int           `json:"skipped"`
+	Failures  int           `json:"failures"`
+	Tests     int           `json:"tests"`
+	TestCases []TestCaseDTO `json:"testCases"`
+}
+
+type TestCaseDTO struct {
+	Name      string                     `json:"name"`
+	Classname string                     `json:"classname"`
+	Time      float64                    `json:"time"`
+	Failures  []TestCaseDetailMessageDTO `json:"failures"`     // empty for passing tests
+	Errors    []TestCaseDetailMessageDTO `json:"errors"`       // empty for passing tests
+	Successes []TestCaseDetailMessageDTO `json:"successInfos"` // empty for failing tests
+}
+
+type TestCaseDetailMessageDTO struct {
+	Message               string `json:"message"`
+	Type                  string `json:"type"`
+	MessageWithStackTrace string `json:"messageWithStackTrace"`
+}
+
 type ResultDTO struct {
 	ResultMetadata
-	BuildJobs []junit.Suite `json:"buildJobs"`
-	BuildLogs buildlogs.Log `json:"buildLogs"`
+	Results   []TestSuiteDTO       `json:"results"`
+	BuildLogs []buildlogs.LogEntry `json:"logs"`
 }
 
 var config Config
@@ -55,17 +82,24 @@ func main() {
 	if err != nil {
 		//TODO: Create response with error message
 		markBuildAsFailed()
-		log.Errorf("Could not Parse JUnit XML files - %v ", err)
+		log.Errorf("Could not parse JUnit XML files into DTOs- %v ", err)
 	} else {
 		markBuildAsSuccessful()
-		log.Info("Successfully parsed the JUnit results")
+		log.Info("Successfully parsed JUnit results into DTOs")
 	}
 
 	metadata.AssignmentRepoCommitHash = getCommitHash(config.AssignmentRepoPath)
 	metadata.TestsRepoCommitHash = getCommitHash(config.TestRepoPath)
 	metadata.BuildCompletionTime = time.Now().Format(time.RFC3339)
+	metadata.BuildLogs = []buildlogs.LogEntry{}
 
-	jsonbody := parseResults(suites)
+	metadata.Passed = 0
+	for _, suite := range suites {
+		suite.Aggregate()
+		metadata.Passed += suite.Totals.Passed
+	}
+
+	jsonbody := convertResultsToTestSuiteDTO(suites)
 	sendResponse(jsonbody)
 }
 
@@ -85,9 +119,8 @@ func loadEnv() {
 }
 
 // Parses the JUnit results and creates a JSON representation
-func parseResults(suites []junit.Suite) []byte {
+func parseDTOToJSON(metadata ResultDTO) []byte {
 	log.Info("Parsing the JUnit results to JSON...")
-	metadata.BuildJobs = append(metadata.BuildJobs, suites...)
 
 	// Convert the DTO to JSON
 	jsonData, err := json.Marshal(metadata)
@@ -97,6 +130,43 @@ func parseResults(suites []junit.Suite) []byte {
 	log.Debug("JSON Data: ", string(jsonData))
 	return jsonData
 }
+
+func convertResultsToTestSuiteDTO(suites []junit.Suite) []byte {
+	log.Info("Converting JUnit results to TestSuiteDTOs...")
+
+	for _, suite := range suites {
+		testCases := make([]TestCaseDTO, len(suite.Tests))
+		for i, test := range suite.Tests {
+			testCases[i] = TestCaseDTO{
+				Name:      test.Name,
+				Classname: test.Classname,
+				Time:      test.Duration.Seconds(),
+			}
+
+			switch test.Status {
+			case junit.StatusFailed:
+				testCases[i].Failures = []TestCaseDetailMessageDTO{{test.Message, "", test.Error.Error()}}
+			case junit.StatusError:
+				testCases[i].Errors = []TestCaseDetailMessageDTO{{test.Message, "", test.Error.Error()}}
+			default:
+				testCases[i].Successes = []TestCaseDetailMessageDTO{{test.Message, "", ""}}
+			}
+		}
+
+		metadata.Results = append(metadata.Results, TestSuiteDTO{
+			Name:      suite.Name,
+			Time:      suite.Totals.Duration.Seconds(),
+			Errors:    suite.Totals.Error,
+			Skipped:   suite.Totals.Skipped,
+			Failures:  suite.Totals.Failed,
+			Tests:     suite.Totals.Tests,
+			TestCases: testCases,
+		})
+	}
+
+	return parseDTOToJSON(metadata)
+}
+
 func getCommitHash(repoPath string) string {
 	log.Debug("Getting the commit hash for path: ", repoPath)
 	// Open the repository

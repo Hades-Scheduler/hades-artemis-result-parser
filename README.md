@@ -1,4 +1,4 @@
-# junit-result-parser
+# hades-artemis-result-parser
 
 A containerized service that parses generated JUnit XML result files into Artemis-compatible result DTOs and submits them to the Artemis API. It runs as the final step in a Hades CI pipeline after the build and test step has completed.
 

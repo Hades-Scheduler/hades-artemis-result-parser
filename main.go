@@ -94,9 +94,9 @@ func main() {
 	metadata.BuildLogs = []buildlogs.LogEntry{}
 
 	metadata.Passed = 0
-	for _, suite := range suites {
-		suite.Aggregate()
-		metadata.Passed += suite.Totals.Passed
+	for i := range suites {
+		suites[i].Aggregate()
+		metadata.Passed += suites[i].Totals.Passed
 	}
 
 	jsonbody := convertResultsToTestSuiteDTO(suites)

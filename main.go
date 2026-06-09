@@ -88,8 +88,16 @@ func main() {
 		log.Info("Successfully parsed JUnit results into DTOs")
 	}
 
-	metadata.AssignmentRepoCommitHash = getCommitHash(config.AssignmentRepoPath)
-	metadata.TestsRepoCommitHash = getCommitHash(config.TestRepoPath)
+	// Trust the commit hashes provided via environment variables (set by the CI orchestrator,
+	// e.g. Artemis). Only fall back to inspecting the cloned working tree when nothing was
+	// supplied, since `git rev-parse HEAD` is racy against subsequent pushes and produces the
+	// branch name instead of a SHA when the clone container left HEAD on a symbolic ref.
+	if metadata.AssignmentRepoCommitHash == "" {
+		metadata.AssignmentRepoCommitHash = getCommitHash(config.AssignmentRepoPath)
+	}
+	if metadata.TestsRepoCommitHash == "" {
+		metadata.TestsRepoCommitHash = getCommitHash(config.TestRepoPath)
+	}
 	metadata.BuildCompletionTime = time.Now().Format(time.RFC3339)
 	metadata.BuildLogs = []buildlogs.LogEntry{}
 

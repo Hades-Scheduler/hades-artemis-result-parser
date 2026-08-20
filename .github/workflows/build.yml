@@ -16,6 +16,9 @@ on:
 jobs:
   build:
     if: github.actor != 'dependabot[bot]'
+    permissions:
+      contents: read
+      packages: write
     uses: ls1intum/.github/.github/workflows/build-and-push-docker-image.yml@v1.2.0
     with:
       image-name: hades-scheduler/hades/junit-result-parser
@@ -24,4 +27,3 @@ jobs:
         type=semver,pattern={{version}}
         type=semver,pattern={{major}}.{{minor}}
         type=raw,value=latest,enable={{is_default_branch}}
-    secrets: inherit

@@ -16,13 +16,12 @@ on:
 jobs:
   build:
     if: github.actor != 'dependabot[bot]'
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - dockerfile: ./Dockerfile
-            image: ghcr.io/ls1intum/hades/junit-result-parser
-    uses: ls1intum/.github/.github/workflows/build-and-push-docker-image.yml@main
+    uses: ls1intum/.github/.github/workflows/build-and-push-docker-image.yml@v1.2.0
     with:
-      image-name: ${{ matrix.image }}
-      docker-file: ${{ matrix.dockerfile }}
+      image-name: hades-scheduler/hades/junit-result-parser
+      docker-file: ./Dockerfile
+      tags: |
+        type=semver,pattern={{version}}
+        type=semver,pattern={{major}}.{{minor}}
+        type=raw,value=latest,enable={{is_default_branch}}
+    secrets: inherit

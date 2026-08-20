@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/caarlos0/env/v9"
+	"github.com/caarlos0/env/v11"
 	git "github.com/go-git/go-git/v5"
 	"github.com/joshdk/go-junit"
-	"github.com/ls1intum/hades/shared/buildlogs"
+	"github.com/hades-scheduler/hades/shared/buildlogs"
 	log "github.com/sirupsen/logrus"
 )
 

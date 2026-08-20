@@ -13,14 +13,14 @@ A containerized service that parses generated JUnit XML result files into Artemi
 
 ## Usage
 
-The parser is invoked as a step in a [Hades](https://github.com/ls1intum/hades) job. Environment variables are passed via the step's `metadata` field, and the shared volume from the build step is mounted to provide access to the generated XML files.
+The parser is invoked as a step in a [Hades](https://github.com/Hades-Scheduler/hades) job. Environment variables are passed via the step's `metadata` field, and the shared volume from the build step is mounted to provide access to the generated XML files.
 
 Example:
 ```json
 {
   "id": 3,
   "name": "Parse Results",
-  "image": "ghcr.io/ls1intum/hades/junit-result-parser:latest",
+  "image": "ghcr.io/hades-scheduler/hades/junit-result-parser:latest",
   "volumeMounts": [
     { "name": "shared", "mountPath": "/shared" }
   ],

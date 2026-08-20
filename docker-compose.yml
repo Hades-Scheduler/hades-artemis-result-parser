@@ -3,7 +3,7 @@
 version: '3.7'
 services:
   result: 
-    image: ghcr.io/ls1intum/hades/junit-result-parser:latest
+    image: ghcr.io/hades-scheduler/hades/junit-result-parser:latest
     build: .
     volumes:
       - type: bind
